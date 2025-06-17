@@ -3,16 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <title>快递认领系统</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: sans-serif;
+            padding: 20px;
+            max-width: 480px;
+            margin: auto;
+        }
+        input[type="text"], button {
+            width: 100%;
+            padding: 10px;
+            margin: 8px 0;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        h2 {
+            text-align: center;
+        }
+    </style>
 </head>
 <body>
     <h2>📦 快递认领系统</h2>
     <form method="POST">
         <label>快递单号：</label>
         <input type="text" name="tracking" required>
-        <br><br>
+
         <label>你的昵称（认领用，可空）：</label>
         <input type="text" name="nickname">
-        <br><br>
+
         <button type="submit">查询 / 认领</button>
     </form>
 
