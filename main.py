@@ -13,7 +13,6 @@ SPREADSHEET_NAME = "express-claim-app"
 MAIN_SHEET = "Sheet1"
 # ==============
 
-# Google Sheets 认证
 def get_gsheet():
     scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
     json_str = os.environ["GOOGLE_APPLICATION_CREDENTIALS_JSON"]
@@ -21,7 +20,8 @@ def get_gsheet():
         tmp.write(json_str)
         tmp.flush()
         creds = Credentials.from_service_account_file(tmp.name, scopes=scopes)
-    return gspread.authorize(creds)
+    client = gspread.authorize(creds)
+    return client
 
 @app.route("/", methods=["GET", "POST"])
 def index():
@@ -29,52 +29,47 @@ def index():
     result = None
 
     if request.method == "POST":
-        # 注意：字段名应与 HTML 中保持一致
+        print("🔥 收到 POST 请求")
         tracking = request.form.get("tracking", "").strip()
-        nickname = request.form.get("name", "").strip()  # HTML 中是 name="name"
+        nickname = request.form.get("nickname", "").strip()
+        print(f"✅ 用户输入的 tracking: {tracking}")
+        print(f"✅ 用户输入的 nickname: {nickname}")
 
-        print(f"📥 输入 tracking: {tracking}")
-        print(f"📥 输入 nickname: {nickname}")
-
-        if tracking:
+        try:
             client = get_gsheet()
+            print("🧪 成功连接 Google Sheets")
             sheet = client.open(SPREADSHEET_NAME).worksheet(MAIN_SHEET)
             data = sheet.get_all_records()
+            print(f"📄 读取表格数据，共 {len(data)} 条记录")
             df = pd.DataFrame(data)
+            print("🔍 表格列名:", df.columns.tolist())
 
-            print("🧾 表头：", df.columns.tolist())
-            print("📦 所有数据：", df.to_dict(orient="records"))
+            if df.empty:
+                message = "❌ 表格为空，无法查询"
+                print("⚠️ 表格是空的")
+            elif tracking in df["快递单号"].astype(str).values:
+                matched = df[df["快递单号"].astype(str) == tracking].iloc[0]
+                print(f"📦 找到匹配单号: {matched.to_dict()}")
 
-            if tracking in df["快递单号"].astype(str).values:
                 if nickname:
                     df.loc[df["快递单号"].astype(str) == tracking, "谁的快递"] = nickname
                     sheet.clear()
                     sheet.update([df.columns.values.tolist()] + df.values.tolist())
+                    print(f"✅ 更新主表成功，认领人为: {nickname}")
 
-                    # 同步子表
+                    # 子表更新
                     if nickname not in [ws.title for ws in client.open(SPREADSHEET_NAME).worksheets()]:
                         client.open(SPREADSHEET_NAME).add_worksheet(title=nickname, rows="100", cols="10")
+                        print(f"➕ 创建新子表: {nickname}")
                     user_ws = client.open(SPREADSHEET_NAME).worksheet(nickname)
                     user_df = df[df["谁的快递"] == nickname].copy()
                     user_ws.clear()
                     user_ws.update([user_df.columns.values.tolist()] + user_df.values.tolist())
+                    print(f"✅ 子表同步成功")
 
                     message = f"快递 {tracking} 成功认领为「{nickname}」✅"
                 else:
-                    message = f"已找到快递 {tracking}，但未填写昵称，未进行认领。"
+                    message = f"已查询到快递 {tracking}，但未填写昵称，未进行认领。"
 
-                matched = df[df["快递单号"].astype(str) == tracking].iloc[0]
                 result = {
-                    "快递单号": matched["快递单号"],
-                    "重量（kg）": matched["重量（kg）"],
-                    "谁的快递": matched.get("谁的快递", "")
-                }
-            else:
-                message = f"未找到快递单号 {tracking} ❌"
-
-    return render_template("index.html", message=message, result=result)
-
-# ==== 启动 ====
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+                    "快递单号"
