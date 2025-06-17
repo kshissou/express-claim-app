@@ -1,75 +1,57 @@
-from flask import Flask, render_template, request, redirect
+from flask import Flask, request, render_template, redirect
+import pandas as pd
 import gspread
 from google.oauth2.service_account import Credentials
-import pandas as pd
-
-# ---------------- 配置 ----------------
-SPREADSHEET_NAME = "快递包裹自动同步"
-MAIN_SHEET = "Sheet1"
-CREDENTIALS_FILE = "credentials.json"
-# ------------------------------------
+import os
 
 app = Flask(__name__)
 
+# ==== 配置区域 ====
+SPREADSHEET_NAME = "express-claim-app"
+MAIN_SHEET = "Sheet1"
+CREDENTIALS_FILE = "credentials.json"
+# =================
+
+# Google Sheets 初始化
 def get_gsheet():
-    scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-    creds = Credentials.from_service_account_file(CREDENTIALS_FILE, scopes=scope)
+    scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+    creds = Credentials.from_service_account_file(CREDENTIALS_FILE, scopes=scopes)
     client = gspread.authorize(creds)
     return client
 
+# 渲染主页
 @app.route("/", methods=["GET", "POST"])
 def index():
     message = None
-    result = None
-
     if request.method == "POST":
         tracking = request.form.get("tracking").strip()
-        name = request.form.get("name", "").strip()
-
-        if not tracking:
-            message = "请输入快递单号。"
-        else:
+        nickname = request.form.get("nickname").strip()
+        if tracking and nickname:
             client = get_gsheet()
             sheet = client.open(SPREADSHEET_NAME).worksheet(MAIN_SHEET)
             data = sheet.get_all_records()
+            df = pd.DataFrame(data)
 
-            found = False
-            for i, row in enumerate(data):
-                if row["快递单号"] == tracking:
-                    result = row
-                    found = True
+            if tracking in df["快递单号"].values:
+                df.loc[df["快递单号"] == tracking, "谁的快递"] = nickname
+                sheet.clear()
+                sheet.update([df.columns.values.tolist()] + df.values.tolist())
 
-                    # 如果填写了认领人，更新主表
-                    if name:
-                        sheet.update_cell(i + 2, 3, name)  # 第3列是“谁的快递”
-                        update_user_sheet(client, name, tracking, row["重量（kg）"])
-                        message = f"🎉 认领成功！{tracking} 现在归 {name} 所有"
+                # 同步到子表（总重量）
+                if nickname not in [ws.title for ws in client.open(SPREADSHEET_NAME).worksheets()]:
+                    client.open(SPREADSHEET_NAME).add_worksheet(title=nickname, rows="100", cols="10")
+                user_ws = client.open(SPREADSHEET_NAME).worksheet(nickname)
+                user_df = df[df["谁的快递"] == nickname].copy()
+                user_ws.clear()
+                user_ws.update([user_df.columns.values.tolist()] + user_df.values.tolist())
 
-            if not found:
-                message = "未找到该快递单号。"
+                message = f"快递 {tracking} 成功认领为「{nickname}」✅"
+            else:
+                message = f"未找到快递单号 {tracking} ❌"
 
-    return render_template("index.html", result=result, message=message)
+    return render_template("index.html", message=message)
 
-def update_user_sheet(client, username, tracking, weight):
-    try:
-        sheet = client.open(SPREADSHEET_NAME)
-        if username not in [ws.title for ws in sheet.worksheets()]:
-            sheet.add_worksheet(title=username, rows="100", cols="3")
-        ws = sheet.worksheet(username)
-        existing = ws.get_all_records()
-
-        # 移除已有条目（更新而非重复）
-        new_data = [row for row in existing if row["快递单号"] != tracking]
-        new_data.append({"快递单号": tracking, "重量（kg）": weight})
-
-        df = pd.DataFrame(new_data)
-        total = df["重量（kg）"].astype(float).sum()
-        df.loc[len(df.index)] = ["总计", total]
-
-        ws.clear()
-        ws.update([df.columns.values.tolist()] + df.values.tolist())
-    except Exception as e:
-        print("更新用户工作表出错：", e)
-
+# ==== 关键点：Render公网监听端口 ====
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
