@@ -37,6 +37,10 @@ def index():
             sheet = client.open(SPREADSHEET_NAME).worksheet(MAIN_SHEET)
             data = sheet.get_all_records()
             df = pd.DataFrame(data)
+            
+            print("🔍 表格列名:", df.columns.tolist())
+            print("🔍 表格数据:", df.to_dict(orient='records'))
+
 
             if tracking in df["快递单号"].values:
                 if nickname:
