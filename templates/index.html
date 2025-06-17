@@ -46,14 +46,14 @@
 <body>
     <h2>📦 快递认领系统</h2>
     <form method="POST">
-        <label for="tracking">快递单号（可输入多个，用空格或换行分隔）：</label>
-        <textarea name="tracking" id="tracking" rows="4" required>{{ request.form.get("tracking", "") }}</textarea>
-
-        <label for="nickname">你的昵称（认领用，可空）：</label>
-        <input type="text" name="nickname" id="nickname" value="{{ request.form.get('nickname', '') }}">
-
-        <button type="submit">查询 / 认领</button>
-    </form>
+    <label>快递单号（可批量，空格或换行隔开）：</label><br>
+    <textarea name="tracking" rows="4" cols="40" required>{{ input_tracking or '' }}</textarea>
+    <br><br>
+    <label>你的昵称（认领用，可空）：</label>
+    <input type="text" name="nickname" value="{{ nickname or '' }}">
+    <br><br>
+    <button type="submit">查询 / 认领</button>
+</form>
 
     {% if results %}
         <div class="result">
