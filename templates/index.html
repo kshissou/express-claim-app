@@ -46,19 +46,19 @@
 <body>
     <h2>📦 快递认领系统</h2>
     <form method="POST">
-    <label>快递单号（可批量，空格或换行隔开）：</label><br>
-    <textarea name="tracking" rows="4" cols="40" required>{{ input_tracking or '' }}</textarea>
-    <br><br>
-    <label>你的昵称（认领用，可空）：</label>
-    <input type="text" name="nickname" value="{{ nickname or '' }}">
-    <br><br>
-    <button type="submit">查询 / 认领</button>
-</form>
+        <label>快递单号（可批量，空格或换行隔开）：</label><br>
+        <textarea name="tracking" rows="4" cols="40" required>{{ input_tracking or '' }}</textarea>
+        <br><br>
+        <label>你的昵称（认领用，可空）：</label>
+        <input type="text" name="nickname" value="{{ nickname or '' }}">
+        <br><br>
+        <button type="submit">查询 / 认领</button>
+    </form>
 
-    {% if results %}
+    {% if result %}
         <div class="result">
             <h3>📋 查询结果：</h3>
-            {% for r in results %}
+            {% for r in result %}
                 <p>
                     📦 快递单号：{{ r["快递单号"] }}<br>
                     ⚖️ 重量：{{ r["重量（kg）"] }} kg<br>
