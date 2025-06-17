@@ -1,0 +1,6 @@
+flask
+gspread
+google-auth
+pandas
+requests
+beautifulsoup4
