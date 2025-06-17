@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>快递认领系统</title>
+    <title>快递认领系统 by酷</title>
     <style>
         body {
             font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
@@ -41,12 +41,45 @@
             color: green;
             font-weight: bold;
         }
+
+        /* 🔄 Loading 遮罩样式 */
+        #loadingOverlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            background-color: rgba(0, 0, 0, 0.4);
+            z-index: 9999;
+            display: none;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .loading-content {
+            text-align: center;
+            color: white;
+            font-size: 1.2rem;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #ffffff;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
     <h2>📦 快递认领系统</h2>
-    <form method="POST">
-        <label>快递单号（可批量，空格或换行隔开）：</label><br>
+    <form method="POST" id="claimForm">
+        <label>快递单号（可批量，空格或换行隔开）：</label>
         <textarea name="tracking" rows="4" cols="40" required>{{ input_tracking or '' }}</textarea>
         <br><br>
         <label>你的昵称（认领用，可空）：</label>
@@ -55,10 +88,10 @@
         <button type="submit">查询 / 认领</button>
     </form>
 
-    {% if result %}
+    {% if results %}
         <div class="result">
             <h3>📋 查询结果：</h3>
-            {% for r in result %}
+            {% for r in results %}
                 <p>
                     📦 快递单号：{{ r["快递单号"] }}<br>
                     ⚖️ 重量：{{ r["重量（kg）"] }} kg<br>
@@ -72,5 +105,19 @@
     {% if message %}
         <div class="message">{{ message }}</div>
     {% endif %}
+
+    <!-- 🔄 Loading 遮罩 -->
+    <div id="loadingOverlay">
+        <div class="loading-content">
+            <div class="spinner"></div>
+            <p>⏳ 正在处理，请稍候...</p>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById("claimForm").addEventListener("submit", function() {
+            document.getElementById("loadingOverlay").style.display = "flex";
+        });
+    </script>
 </body>
 </html>
