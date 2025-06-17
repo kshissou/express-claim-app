@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>快递认领系统</title>
+</head>
+<body>
+    <h2>📦 快递认领系统</h2>
+    <form method="POST">
+        <label>快递单号：</label>
+        <input type="text" name="tracking" required>
+        <br><br>
+        <label>你的昵称（认领用，可空）：</label>
+        <input type="text" name="name">
+        <br><br>
+        <button type="submit">查询 / 认领</button>
+    </form>
+
+    {% if result %}
+        <h3>查询结果：</h3>
+        <p>📦 快递单号：{{ result["快递单号"] }}</p>
+        <p>⚖️ 重量：{{ result["重量（kg）"] }} kg</p>
+        <p>👤 谁的快递：{{ result["谁的快递"] or "尚未认领" }}</p>
+    {% endif %}
+
+    {% if message %}
+        <p style="color: green;"><strong>{{ message }}</strong></p>
+    {% endif %}
+</body>
+</html>
