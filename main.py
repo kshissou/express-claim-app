@@ -52,3 +52,40 @@ def index():
                 print(f"📦 找到匹配单号: {matched.to_dict()}")
 
                 if nickname:
+                    df.loc[df["快递单号"].astype(str) == tracking, "谁的快递"] = nickname
+                    sheet.clear()
+                    sheet.update([df.columns.values.tolist()] + df.values.tolist())
+                    print(f"✅ 更新主表成功，认领人为: {nickname}")
+
+                    # 子表更新
+                    if nickname not in [ws.title for ws in client.open(SPREADSHEET_NAME).worksheets()]:
+                        client.open(SPREADSHEET_NAME).add_worksheet(title=nickname, rows="100", cols="10")
+                        print(f"➕ 创建新子表: {nickname}")
+                    user_ws = client.open(SPREADSHEET_NAME).worksheet(nickname)
+                    user_df = df[df["谁的快递"] == nickname].copy()
+                    user_ws.clear()
+                    user_ws.update([user_df.columns.values.tolist()] + user_df.values.tolist())
+                    print(f"✅ 子表同步成功")
+
+                    message = f"快递 {tracking} 成功认领为「{nickname}」✅"
+                else:
+                    message = f"已查询到快递 {tracking}，但未填写昵称，未进行认领。"
+
+                result = {
+                    "快递单号": matched["快递单号"],
+                    "重量（kg）": matched["重量（kg）"],
+                    "谁的快递": matched.get("谁的快递", "")
+                }
+            else:
+                message = f"未找到快递单号 {tracking} ❌"
+                print("❌ 没找到对应单号")
+
+        except Exception as e:
+            print("❌ 出现异常：", e)
+            message = "❌ 查询失败，请稍后重试"
+
+    return render_template("index.html", message=message, result=result)
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
