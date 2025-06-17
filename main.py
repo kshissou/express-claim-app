@@ -1,22 +1,13 @@
 from flask import Flask, render_template, request, redirect
-import pandas as pd
 import gspread
 from google.oauth2.service_account import Credentials
-from bs4 import BeautifulSoup
-import requests
+import pandas as pd
 
-# ---------------- 配置区域 ----------------
+# ---------------- 配置 ----------------
 SPREADSHEET_NAME = "快递包裹自动同步"
 MAIN_SHEET = "Sheet1"
 CREDENTIALS_FILE = "credentials.json"
-
-# 抓取数据相关
-URL = "http://www.yuanriguoji.com/Phone/Package?WaveHouse=0&Prediction=2&Storage=0&Grounding=0&active=1"
-HEADERS = {
-    "User-Agent": "Mozilla/5.0",
-    "Cookie": "ClientData=xxxxxx"  # 替换为你的实际 Cookie
-}
-# ----------------------------------------
+# ------------------------------------
 
 app = Flask(__name__)
 
@@ -26,60 +17,59 @@ def get_gsheet():
     client = gspread.authorize(creds)
     return client
 
-def get_main_sheet():
-    client = get_gsheet()
-    sheet = client.open(SPREADSHEET_NAME).worksheet(MAIN_SHEET)
-    return sheet
-
-def read_sheet_df():
-    sheet = get_main_sheet()
-    data = sheet.get_all_records()
-    df = pd.DataFrame(data)
-    return df
-
-def update_main_sheet(df):
-    sheet = get_main_sheet()
-    sheet.clear()
-    sheet.update([df.columns.values.tolist()] + df.values.tolist())
-
-def update_user_sheets(df):
-    client = get_gsheet()
-    users = df["谁的快递"].dropna().unique()
-    for user in users:
-        user_df = df[df["谁的快递"] == user][["快递单号", "重量（kg）"]]
-        total_weight = user_df["重量（kg）"].astype(float).sum()
-        user_df.loc[len(user_df.index)] = ["总计", total_weight]
-        try:
-            sheet = client.open(SPREADSHEET_NAME).worksheet(user)
-        except:
-            sheet = client.open(SPREADSHEET_NAME).add_worksheet(title=user, rows="100", cols="2")
-        sheet.clear()
-        sheet.update([user_df.columns.values.tolist()] + user_df.values.tolist())
-
 @app.route("/", methods=["GET", "POST"])
 def index():
-    message = ""
-    df = read_sheet_df()
+    message = None
     result = None
 
     if request.method == "POST":
-        tracking_number = request.form.get("tracking")
-        nickname = request.form.get("nickname")
+        tracking = request.form.get("tracking").strip()
+        name = request.form.get("name", "").strip()
 
-        # 查找记录
-        if tracking_number in df["快递单号"].values:
-            df.loc[df["快递单号"] == tracking_number, "谁的快递"] = nickname
-            update_main_sheet(df)
-            update_user_sheets(df)
-            message = f"成功认领：{tracking_number} 给 {nickname}"
+        if not tracking:
+            message = "请输入快递单号。"
         else:
-            message = "未找到该快递单号"
+            client = get_gsheet()
+            sheet = client.open(SPREADSHEET_NAME).worksheet(MAIN_SHEET)
+            data = sheet.get_all_records()
 
-    if request.args.get("q"):
-        q = request.args.get("q")
-        result = df[df["快递单号"].astype(str).str.contains(q)]
+            found = False
+            for i, row in enumerate(data):
+                if row["快递单号"] == tracking:
+                    result = row
+                    found = True
+
+                    # 如果填写了认领人，更新主表
+                    if name:
+                        sheet.update_cell(i + 2, 3, name)  # 第3列是“谁的快递”
+                        update_user_sheet(client, name, tracking, row["重量（kg）"])
+                        message = f"🎉 认领成功！{tracking} 现在归 {name} 所有"
+
+            if not found:
+                message = "未找到该快递单号。"
 
     return render_template("index.html", result=result, message=message)
+
+def update_user_sheet(client, username, tracking, weight):
+    try:
+        sheet = client.open(SPREADSHEET_NAME)
+        if username not in [ws.title for ws in sheet.worksheets()]:
+            sheet.add_worksheet(title=username, rows="100", cols="3")
+        ws = sheet.worksheet(username)
+        existing = ws.get_all_records()
+
+        # 移除已有条目（更新而非重复）
+        new_data = [row for row in existing if row["快递单号"] != tracking]
+        new_data.append({"快递单号": tracking, "重量（kg）": weight})
+
+        df = pd.DataFrame(new_data)
+        total = df["重量（kg）"].astype(float).sum()
+        df.loc[len(df.index)] = ["总计", total]
+
+        ws.clear()
+        ws.update([df.columns.values.tolist()] + df.values.tolist())
+    except Exception as e:
+        print("更新用户工作表出错：", e)
 
 if __name__ == "__main__":
     app.run(debug=True)
