@@ -2,48 +2,75 @@
 <html lang="zh">
 <head>
     <meta charset="UTF-8">
-    <title>快递认领系统</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>快递认领系统</title>
     <style>
         body {
-            font-family: sans-serif;
+            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+            max-width: 600px;
+            margin: 20px auto;
             padding: 20px;
-            max-width: 480px;
-            margin: auto;
+            line-height: 1.6;
         }
-        input[type="text"], button {
+
+        input, textarea, button {
             width: 100%;
             padding: 10px;
-            margin: 8px 0;
-            font-size: 16px;
+            margin-top: 8px;
             box-sizing: border-box;
+            font-size: 1rem;
         }
+
+        button {
+            margin-top: 20px;
+            cursor: pointer;
+        }
+
         h2 {
-            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .result, .message {
+            margin-top: 20px;
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        .message {
+            color: green;
+            font-weight: bold;
         }
     </style>
 </head>
 <body>
     <h2>📦 快递认领系统</h2>
     <form method="POST">
-        <label>快递单号：</label>
-        <input type="text" name="tracking" required>
+        <label for="tracking">快递单号（可输入多个，用空格或换行分隔）：</label>
+        <textarea name="tracking" id="tracking" rows="4" required>{{ request.form.get("tracking", "") }}</textarea>
 
-        <label>你的昵称（认领用，可空）：</label>
-        <input type="text" name="nickname">
+        <label for="nickname">你的昵称（认领用，可空）：</label>
+        <input type="text" name="nickname" id="nickname" value="{{ request.form.get('nickname', '') }}">
 
         <button type="submit">查询 / 认领</button>
     </form>
 
-    {% if result %}
-        <h3>查询结果：</h3>
-        <p>📦 快递单号：{{ result["快递单号"] }}</p>
-        <p>⚖️ 重量：{{ result["重量（kg）"] }} kg</p>
-        <p>👤 谁的快递：{{ result["谁的快递"] or "尚未认领" }}</p>
+    {% if results %}
+        <div class="result">
+            <h3>📋 查询结果：</h3>
+            {% for r in results %}
+                <p>
+                    📦 快递单号：{{ r["快递单号"] }}<br>
+                    ⚖️ 重量：{{ r["重量（kg）"] }} kg<br>
+                    👤 谁的快递：{{ r["谁的快递"] or "尚未认领" }}
+                </p>
+                <hr>
+            {% endfor %}
+        </div>
     {% endif %}
 
     {% if message %}
-        <p style="color: green;"><strong>{{ message }}</strong></p>
+        <div class="message">{{ message }}</div>
     {% endif %}
 </body>
 </html>
